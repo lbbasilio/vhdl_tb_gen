@@ -51,8 +51,8 @@ void init_map () {
 
 int main (int argc, char** argv) {
 	
-	if (argc != 2 && argc != 3) {
-		std::cout << "Usage: tbgen.exe [SOURCE] {TARGET}" << std::endl;
+	if (argc < 2 || argc > 3) {
+		std::cout << "Usage: tbgen.exe {SOURCE} [TARGET]" << std::endl;
 		return 0;
 	}
 	
@@ -293,19 +293,55 @@ int main (int argc, char** argv) {
 		
 		fi.clear();
 		fi.seekg(0, std::fstream::beg);
+
+		std::string outfile_name;
 		if (argc == 3) {
-			fo.open(argv[2], std::fstream::out);
-			tb_name = std::string(argv[2]);
-			pos = tb_name.find_first_of(".");
-			tb_name = tb_name.substr(0, pos);
+			outfile_name = std::string(argv[2]);
+			pos = outfile_name.find_first_of(".");
+			tb_name = outfile_name.substr(0, pos);
 		}
 		else {
 			tb_name = entity_name + "_tb";
-			fo.open(tb_name + ".vhd", std::fstream::out);
+			outfile_name = tb_name + ".vhd";
 		}
 
+		fo.open(outfile_name, std::ios::in);
+		if (fo.good())
+		{
+			// Check if output file already exists and
+			// if so, asks if it should be overwritten
+			if (fo.peek() != std::fstream::traits_type::eof())
+			{
+				std::string user_input;
+				bool ovr = false;
+				bool valid = false;
+				do 
+				{
+					std::cout << "Output file " << outfile_name << " already exists and is not empty. Do you want to overwride it? (Y/N) ";
+					std::getline(std::cin, user_input);
+					if (user_input == "Y" || user_input == "y")
+					{
+						ovr = true;
+						valid = true;
+					} 
+					else if (user_input == "N" || user_input == "n") valid = true;
+				} while (!valid);
+				
+				if (!ovr)
+				{
+					std::cout << "Testbench could not be generated." << std::endl;
+					return 0;
+				}
+				 
+				fo.clear();
+			}
+		}
+		fo.close();
+
+		fo.open(outfile_name, std::ios::out);
 		if (fo.good()) {
 			
+
 			// Copy libraries
 			for (int n = 1; n < lib_begin_line; n++) getline(fi, line);
 			for (int n = lib_begin_line; n <= lib_end_line; n++) {
@@ -351,9 +387,7 @@ int main (int argc, char** argv) {
 			fo << "\n\n end architecture;";
 
 		} else {
-			std::cout << "Couldn't open output file: ";
-			if (argc == 3) std::cout << argv[2] << std::endl;
-			else std::cout << entity_name << "_tb.vhd" << std::endl;
+			std::cout << "Couldn't open output file: " << outfile_name << std::endl;
 			return 0;
 		}
 
